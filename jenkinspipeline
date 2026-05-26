@@ -1,0 +1,59 @@
+pipeline {
+    agent {
+        node {
+            label 'Manager-Server'
+        }
+    }
+    tools {
+        maven 'mymaven'
+    }
+
+    stages {
+        stage('Code Checkout') {
+            steps {
+                git 'https://github.com/ranjithk-dev/dockerwebapp1.git'
+            }
+        }
+        stage('Code Quality Analysis') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                  sh "mvn clean verify sonar:sonar -Dsonar.projectKey=Test -Dsonar.projectName='Test'"
+                }
+            }
+        }
+        stage('Build') {
+            steps {
+                sh "mvn clean package"
+                sh "cp -R target Docker-app"
+            }
+        }
+        stage('Artifact') {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'vprofile', classifier: '', file: 'target/vprofile-v2.war', type: 'war']], credentialsId: 'nexus', groupId: 'com.visualpathit', nexusUrl: '54.167.84.20:8081/', nexusVersion: 'nexus3', protocol: 'http', repository: 'javaproject', version: 'v2'
+            }
+        }
+        stage('image') {
+            steps {
+                sh "docker build -t java-app:v1 Docker-app"
+                sh "docker build -t java-db:v1 Docker-db"
+                sh "docker tag java-app:v1 ranjithkdev/java-app:v1"
+                sh "docker tag java-db:v1 ranjithkdev/java-db:v1"
+            }
+        }
+        stage('Publish') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'DockerHubCred') {
+                        sh "docker push ranjithkdev/java-app:v1"
+                        sh "docker push ranjithkdev/java-db:v1"
+                    }
+                }
+            }
+        }
+        stage('deploy') {
+            steps{
+                sh "docker stack deploy -c compose.yml javaproj"
+            }
+        }
+    }
+}
