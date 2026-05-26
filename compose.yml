@@ -1,14 +1,36 @@
----
 version: "3"
-services:
- devopsdb:
-   image: shaikmustafa/harikanew:dbimage
-   ports:
-     - "3306:3306"
 
- application:
-   image: shaikmustafa/harikanew:appimage
-   ports:
-     - "1111:8080"
-   depends_on:
-     - "devopsdb"
+services:
+
+  devopsdb:
+    image: ranjithkdev/java-db:v1
+    ports:
+      - "3306:3306"
+      
+    volumes:
+      - dbdata:/var/lib/mysql
+
+    networks:
+      - mynetwork
+
+  application:
+    image: ranjithkdev/java-app:v1
+
+    ports:
+      - "1111:8080"
+
+    depends_on:
+      - devopsdb
+
+    networks:
+      - mynetwork
+
+    deploy:
+      replicas:3
+
+networks:
+  mynetwork:
+    driver: overlay
+
+volumes:
+  dbdata:
